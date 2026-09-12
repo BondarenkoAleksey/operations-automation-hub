@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi.testclient import TestClient
 
 from operations_automation_hub.main import app
@@ -36,6 +38,9 @@ def test_request_create():
     )
     assert response_json.get("amount") == str(payload["amount"]), response_json.get("amount")
     assert response_json.get("inn") == payload.get("inn"), response_json.get("inn")
+    request_id = UUID(response_json["request_id"])
+    assert request_id.version == 4
+    assert response_json.get("status") == "NEW"
 
 
 def test_request_create_incorrect_inn():
