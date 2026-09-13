@@ -14,8 +14,9 @@
 - uv
 - pytest
 - Ruff
+- FastAPI
 
-Стек будет расширяться постепенно: FastAPI, PostgreSQL, SQLAlchemy, Alembic, Docker, Redis, Celery, интеграции и мониторинг.
+Стек будет расширяться постепенно: PostgreSQL, SQLAlchemy, Alembic, Docker, Redis, Celery, интеграции и мониторинг.
 
 ## Подготовка окружения
 
@@ -57,6 +58,83 @@ uv run ruff format --check .
 uv run ruff format .
 ```
 
+## Дополнительно
+
+### Как создать `.env`
+
+Создайте локальный файл переменных окружения на основе шаблона:
+
+```bash
+cp .env.example .env
+```
+При необходимости измените значение `POSTGRES_PASSWORD` в локальном файле `.env`. Файл `.env` не должен попадать в Git.
+
+### Как поднять PostgreSQL
+
+Перед запуском установите и запустите Docker Desktop
+
+Проверить итоговую конфигурацию Docker Compose:
+
+```bash
+docker compose config
+```
+Запустить PostgreSQL в фоновом режиме:
+
+```bash
+docker compose up -d
+```
+или для повторного запуска
+
+```bash
+docker compose start postgres
+```
+
+Проверить статус
+
+```bash
+docker compose ps
+```
+
+Проверка готовности через pg_isready
+
+```bash
+docker compose exec postgres pg_isready -U operations_user -d operations_automation_hub
+```
+
+Посмотреть логи
+
+```bash
+docker compose logs postgres
+```
+
+Остановить контейнер, без его удаления
+
+```bash
+docker compose stop
+```
+
+Удалить контейнер (останавливает и удаляет контейнеры и сеть проекта, но сохраняет named volume `postgres_data` и данные PostgreSQL)
+
+```bash
+docker compose down
+```
+
+Удалить контейнер (дополнительно удаляет named volume, поэтому локальная база будет полностью очищена)
+
+```bash
+docker compose down -v
+```
+
+Подключиться к БД + SQL-команда для проверки
+
+```bash
+docker compose exec postgres psql -U operations_user -d operations_automation_hub -c "SELECT current_database(), current_user;"
+```
+
 ## Текущий статус
 
 Этап 0: настройка Python-проекта, uv, pytest и Ruff.
+
+Этап 1: минимальный FastAPI: эндпоинты GET и POST, первые тесты, Pydantic схемы, запуск Uvicorn
+
+Этап 2: PostgreSQL и SQLAlchemy
