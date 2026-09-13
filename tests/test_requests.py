@@ -1,4 +1,4 @@
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 
@@ -59,3 +59,25 @@ def test_request_create_zero_or_minus_amount():
     payload["amount"] = -1
     response = client.post("/requests", json=payload)
     assert_status_code(response, expected_status_code=422)
+
+
+def test_success_get_request():
+    payload = get_valid_request_payload()
+    response = client.post("/requests", json=payload)
+    assert_status_code(response, expected_status_code=201)
+    request_id = UUID(response.json()["request_id"])
+    response = client.get(f"/requests/{request_id}")
+    assert_status_code(response, expected_status_code=200)
+    response_json = response.json()
+    assert response_json.get("external_request_id") == payload.get("external_request_id"), (
+        response_json.get("external_request_id")
+    )
+    assert response_json.get("request_id") == str(request_id), response_json.get("request_id")
+    assert response_json.get("status") == "NEW"
+
+
+def test_get_request_not_found():
+    request_id = uuid4()
+    response = client.get(f"/requests/{request_id}")
+    assert_status_code(response, expected_status_code=404)
+    assert response.json()["detail"] == "Request not found"
