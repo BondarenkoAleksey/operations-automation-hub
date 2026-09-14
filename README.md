@@ -131,6 +131,15 @@ docker compose down -v
 docker compose exec postgres psql -U operations_user -d operations_automation_hub -c "SELECT current_database(), current_user;"
 ```
 
+### PostgreSQL: важные моменты
+
+- Локальные переменные PostgreSQL лежат в `.env`.
+- `.env` создаётся на основе `.env.example`.
+- `.env` не коммитится.
+- При запуске FastAPI на хосте используйте `POSTGRES_HOST=localhost`.
+- Когда FastAPI будет запущен в Docker Compose, hostname будет `postgres` — имя Compose-сервиса.
+- Внутри Docker-контейнера `localhost` указывает на сам контейнер FastAPI, а не на PostgreSQL.
+
 ## Текущий статус
 
 Этап 0: настройка Python-проекта, uv, pytest и Ruff.
