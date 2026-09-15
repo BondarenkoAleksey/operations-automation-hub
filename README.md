@@ -39,6 +39,14 @@ uv run python --version
 ```bash
 uv run pytest
 ```
+По умолчанию `uv run pytest` запускает тесты без внешней инфраструктуры.
+
+Integration-тесты требуют запущенного PostgreSQL:
+
+```bash
+docker compose up -d
+uv run pytest -m integration
+```
 
 Проверить код линтером:
 

@@ -29,7 +29,10 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-ra"
+addopts = ["-ra", "-m", "not integration"]
+markers = [
+    "integration: tests that require external infrastructure",
+]
 
 [tool.ruff]
 line-length = 100
