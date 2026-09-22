@@ -1,13 +1,15 @@
 from http import HTTPStatus
 from uuid import UUID, uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
+from sqlalchemy.orm import Session
 
+from operations_automation_hub.database import get_db
+from operations_automation_hub.models.request import RequestModel
+from operations_automation_hub.repositories.request_repository import RequestRepository
 from operations_automation_hub.schemas.request import RequestCreate, RequestResponse, RequestStatus
-from operations_automation_hub.storage.request_store import InMemoryRequestStore
 
 app = FastAPI(title="Operations Automation Hub", version="0.1.0")
-request_store = InMemoryRequestStore()
 
 
 @app.get("/")
@@ -21,12 +23,15 @@ def health_check():
 
 
 @app.post("/requests", status_code=HTTPStatus.CREATED, response_model=RequestResponse)
-def request_create(request_model: RequestCreate) -> RequestResponse:
-    data = request_model.model_dump()
-    request_id = uuid4()
-    request_response = RequestResponse(request_id=request_id, status=RequestStatus.NEW, **data)
-    request_store.save(request_response)
-    return request_response
+def request_create(
+    request_data: RequestCreate,
+    session: Session = Depends(get_db),
+) -> RequestResponse:
+    data = request_data.model_dump()
+    request = RequestModel(request_id=uuid4(), status=RequestStatus.NEW, **data)
+    RequestRepository(session).create(request=request)
+    session.commit()
+    return RequestResponse.model_validate(request, from_attributes=True)
 
 
 @app.get(
@@ -45,8 +50,9 @@ def request_create(request_model: RequestCreate) -> RequestResponse:
         }
     },
 )
-def request_get(request_id: UUID) -> RequestResponse:
-    request = request_store.get(request_id)
+def request_get(request_id: UUID, session: Session = Depends(get_db)) -> RequestResponse:
+    repository = RequestRepository(session)
+    request = repository.get_by_id(request_id)
     if request is None:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Request not found")
-    return request
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND.value, detail="Request not found")
+    return RequestResponse.model_validate(request, from_attributes=True)
