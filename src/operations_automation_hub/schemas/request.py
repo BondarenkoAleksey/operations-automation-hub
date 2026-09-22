@@ -36,7 +36,7 @@ class RequestCreate(BaseModel):
     external_request_id: str = Field(..., min_length=1, max_length=64)
     client_name: str = Field(..., min_length=1, max_length=255)
     phone: str = Field(..., min_length=1, max_length=32)
-    email: str = Field(..., min_length=1, max_length=255)
+    email: str = Field(..., min_length=1, max_length=254)
     inn: str = Field(pattern=r"^\d{10}(\d{2})?$")
     product_type: str = Field(..., min_length=1, max_length=64)
     amount: Decimal = Field(..., gt=0)

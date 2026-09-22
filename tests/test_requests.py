@@ -1,13 +1,38 @@
 from uuid import UUID, uuid4
 
+import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import delete
 
+from operations_automation_hub.database import SessionLocal
 from operations_automation_hub.main import app
+from operations_automation_hub.models.request import RequestModel
+
+pytestmark = pytest.mark.integration
+
+TEST_EXTERNAL_REQUEST_ID_PREFIX = "TEST-REQ-"
+
+
+@pytest.fixture(autouse=True)
+def clear_test_db():
+    with SessionLocal.begin() as session:
+        session.execute(
+            delete(RequestModel).where(
+                RequestModel.external_request_id.like(f"{TEST_EXTERNAL_REQUEST_ID_PREFIX}%")
+            )
+        )
+    yield
+    with SessionLocal.begin() as session:
+        session.execute(
+            delete(RequestModel).where(
+                RequestModel.external_request_id.like(f"{TEST_EXTERNAL_REQUEST_ID_PREFIX}%")
+            )
+        )
 
 
 def get_valid_request_payload():
     return {
-        "external_request_id": "REQ-10001",
+        "external_request_id": f"{TEST_EXTERNAL_REQUEST_ID_PREFIX}{uuid4()}",
         "client_name": "Иван Петров",
         "phone": "+79991234567",
         "email": "ivan.petrov@example.test",
@@ -81,3 +106,12 @@ def test_get_request_not_found():
     response = client.get(f"/requests/{request_id}")
     assert_status_code(response, expected_status_code=404)
     assert response.json()["detail"] == "Request not found"
+
+
+def test_request_create_email_longer_than_database_limit():
+    payload = get_valid_request_payload()
+    invalid_email = f"{'a' * 246}@test.com"
+    assert len(invalid_email) == 255
+    payload["email"] = invalid_email
+    response = client.post("/requests", json=payload)
+    assert_status_code(response, expected_status_code=422)
