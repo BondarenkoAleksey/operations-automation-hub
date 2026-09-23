@@ -115,3 +115,20 @@ def test_request_create_email_longer_than_database_limit():
     payload["email"] = invalid_email
     response = client.post("/requests", json=payload)
     assert_status_code(response, expected_status_code=422)
+
+
+def test_duplicate_external_request_id_returns_409():
+    payload = get_valid_request_payload()
+    first_response = client.post("/requests", json=payload)
+    assert_status_code(first_response, expected_status_code=201)
+    request_id = first_response.json()["request_id"]
+
+    duplicate_response = client.post("/requests", json=payload)
+    assert_status_code(duplicate_response, expected_status_code=409)
+    assert duplicate_response.json()["detail"] == (
+        "Request with this external_request_id already exists"
+    )
+
+    get_response = client.get(f"/requests/{request_id}")
+    assert_status_code(get_response, expected_status_code=200)
+    assert get_response.json()["external_request_id"] == payload["external_request_id"]
