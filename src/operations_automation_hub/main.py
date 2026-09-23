@@ -2,6 +2,7 @@ from http import HTTPStatus
 from uuid import UUID, uuid4
 
 from fastapi import Depends, FastAPI, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from operations_automation_hub.database import get_db
@@ -29,8 +30,23 @@ def request_create(
 ) -> RequestResponse:
     data = request_data.model_dump()
     request = RequestModel(request_id=uuid4(), status=RequestStatus.NEW, **data)
-    RequestRepository(session).create(request=request)
-    session.commit()
+    try:
+        RequestRepository(session).create(request=request)
+        session.commit()
+    except IntegrityError as error:
+        session.rollback()
+        original_error = error.orig
+        diag = getattr(original_error, "diag", None)
+        constraint = getattr(diag, "constraint_name", None)
+        if (
+            getattr(original_error, "sqlstate", None) == "23505"
+            and constraint == "requests_external_request_id_key"
+        ):
+            raise HTTPException(
+                status_code=HTTPStatus.CONFLICT.value,
+                detail="Request with this external_request_id already exists",
+            ) from original_error
+        raise
     return RequestResponse.model_validate(request, from_attributes=True)
 
 
