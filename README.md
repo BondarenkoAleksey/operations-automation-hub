@@ -41,11 +41,18 @@ uv run pytest
 ```
 По умолчанию `uv run pytest` запускает тесты без внешней инфраструктуры.
 
-Integration-тесты требуют запущенного PostgreSQL:
+Integration-тесты требуют запущенного PostgreSQL и применённой схемы БД:
 
 ```bash
-docker compose up -d
+docker compose up -d postgres
+uv run alembic upgrade head
 uv run pytest -m integration
+```
+
+Проверить текущую revision Alembic:
+
+```bash
+uv run alembic current
 ```
 
 Проверить код линтером:
@@ -133,10 +140,57 @@ docker compose down
 docker compose down -v
 ```
 
+#### Восстановление локальной БД после `docker compose down -v`
+
+> `docker compose down -v` удаляет named volume `postgres_data`.
+> Для этого учебного проекта это допустимо только для локальной БД с синтетическими данными.
+> После удаления volume PostgreSQL запускается с чистой БД без таблиц и Alembic revision.
+
+Чтобы восстановить локальную схему БД:
+
+```bash
+docker compose up -d postgres
+docker compose ps
+uv run alembic upgrade head
+uv run alembic current
+uv run pytest -m integration
+```
+
+Ожидаемый результат `uv run alembic current` — текущая последняя Alembic revision с отметкой `(head)`.
+
 Подключиться к БД + SQL-команда для проверки
 
 ```bash
 docker compose exec postgres psql -U operations_user -d operations_automation_hub -c "SELECT current_database(), current_user;"
+```
+
+#### PostgreSQL работает в Docker, но Python получает `Connection refused`
+
+Если контейнер имеет статус `healthy`, но Python/FastAPI, запущенный на macOS, не подключается к `localhost:5432`, проверь публикацию порта:
+
+```bash
+docker compose ps
+docker compose port postgres 5432
+```
+
+В выводе `docker compose ps` должен быть опубликованный порт, похожий на:
+
+```text
+0.0.0.0:5432->5432/tcp
+```
+
+Если отображается только:
+
+```text
+5432/tcp
+```
+
+PostgreSQL доступен лишь внутри Docker network, а приложение, запущенное на хост-машине, не сможет подключиться к `localhost:5432`.
+
+Для пересоздания контейнера без удаления named volume:
+
+```bash
+docker compose up -d --force-recreate postgres
 ```
 
 ### PostgreSQL: важные моменты
