@@ -5,6 +5,7 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 from operations_automation_hub.core.settings import Settings
 from operations_automation_hub.models.base import Base
+from operations_automation_hub.models.job import JobModel  # noqa: F401
 from operations_automation_hub.models.request import RequestModel  # noqa: F401
 
 # this is the Alembic Config object, which provides
