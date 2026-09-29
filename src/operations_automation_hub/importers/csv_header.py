@@ -32,3 +32,13 @@ def read_csv_header(path: Path) -> list[str]:
             raise ValueError("Пустой заголовок")
         validate_csv_header(header=header)
         return header
+
+
+def read_csv_rows(path: Path) -> list[list[str]]:
+    with open(path, encoding="utf-8", newline="") as file:
+        reader = csv.reader(file)
+        header = next(reader, None)
+        if header is None:
+            raise ValueError("Пустой заголовок")
+        validate_csv_header(header=header)
+        return list(reader)
