@@ -41,4 +41,12 @@ def read_csv_rows(path: Path) -> list[list[str]]:
         if header is None:
             raise ValueError("Пустой заголовок")
         validate_csv_header(header=header)
-        return list(reader)
+        len_header = len(header)
+        csv_rows_list = []
+        for record_number, row in enumerate(reader, start=2):
+            if len(row) != len_header:
+                raise ValueError(
+                    f"Запись {record_number}: ожидалось {len_header} полей, получено {len(row)}."
+                )
+            csv_rows_list.append(row)
+        return csv_rows_list
