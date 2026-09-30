@@ -177,3 +177,67 @@ def test_read_csv_rows_invalid_header_raises(tmp_path):
     )
     with pytest.raises(ValueError, match="inn"):
         read_csv_rows(csv_file)
+
+
+def test_read_csv_rows_error_in_order_two(tmp_path):
+    csv_file = tmp_path / "error.csv"
+    csv_file.write_text(
+        "external_request_id,client_name,phone,email,inn,product_type,amount,created_at\n"
+        'REQ-001,"Иванов, Иван",+79990000001,7707083893,LOAN,125000.50,2026-09-12\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        ValueError,
+        match=r"Запись 2: ожидалось 8 полей, получено 7\.",
+    ):
+        read_csv_rows(csv_file)
+
+
+def test_read_csv_rows_error_in_order_three(tmp_path):
+    csv_file = tmp_path / "error.csv"
+    csv_file.write_text(
+        "external_request_id,client_name,phone,email,inn,product_type,amount,created_at\n"
+        'REQ-001,"Иванов, Иван",+79990000001,ivan@test.ru,7707083893,LOAN,125000.50,2026-09-12\n'
+        "REQ-002,Мария,+79990000002,maria@test.ru,7707083893,LOAN,99000.00,2026-09-13,Moscow\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        ValueError,
+        match=r"Запись 3: ожидалось 8 полей, получено 9\.",
+    ):
+        read_csv_rows(csv_file)
+
+
+def test_read_csv_rows_empty_email_is_allowed(tmp_path):
+    csv_file = tmp_path / "error.csv"
+    csv_file.write_text(
+        "external_request_id,client_name,phone,email,inn,product_type,amount,created_at\n"
+        'REQ-001,"Иванов, Иван",+79990000001,,7707083893,LOAN,125000.50,2026-09-12\n',
+        encoding="utf-8",
+    )
+    rows = read_csv_rows(csv_file)
+    assert rows == [
+        [
+            "REQ-001",
+            "Иванов, Иван",
+            "+79990000001",
+            "",
+            "7707083893",
+            "LOAN",
+            "125000.50",
+            "2026-09-12",
+        ]
+    ]
+
+
+def test_read_csv_rows_with_empty_row(tmp_path):
+    csv_file = tmp_path / "error.csv"
+    csv_file.write_text(
+        "external_request_id,client_name,phone,email,inn,product_type,amount,created_at\n\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        ValueError,
+        match=r"Запись 2: ожидалось 8 полей, получено 0\.",
+    ):
+        read_csv_rows(csv_file)
