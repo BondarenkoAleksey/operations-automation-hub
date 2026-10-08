@@ -13,3 +13,4 @@ class CsvValidationIssue(BaseModel):
 class CsvValidationResult(BaseModel):
     valid_records: list[RequestCreate] = Field(default_factory=list)
     issues: list[CsvValidationIssue] = Field(default_factory=list)
+    duplicate_request_ids: list[str] = Field(default_factory=list)

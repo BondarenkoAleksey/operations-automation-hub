@@ -99,3 +99,12 @@ def test_invalid_record_number():
             error_type="string_too_short",
         )
     assert any(error["loc"] == ("record_number",) for error in exc_info.value.errors())
+
+
+def test_duplicate_request_ids():
+    result_one = CsvValidationResult()
+    result_two = CsvValidationResult()
+    assert result_one.duplicate_request_ids == []
+    assert result_two.duplicate_request_ids == []
+    result_one.duplicate_request_ids.append("REQ-001")
+    assert result_two.duplicate_request_ids == []
