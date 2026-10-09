@@ -1,14 +1,21 @@
+import csv
 from http import HTTPStatus
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from uuid import UUID, uuid4
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from operations_automation_hub.database import get_db
+from operations_automation_hub.importers.csv_import import validate_csv_file
 from operations_automation_hub.models.request import RequestModel
 from operations_automation_hub.repositories.request_repository import RequestRepository
+from operations_automation_hub.schemas.csv_import import CsvValidationResult
 from operations_automation_hub.schemas.request import RequestCreate, RequestResponse, RequestStatus
+
+MAX_CSV_SIZE = 1_048_576
 
 app = FastAPI(title="Operations Automation Hub", version="0.1.0")
 
@@ -72,3 +79,26 @@ def request_get(request_id: UUID, session: Session = Depends(get_db)) -> Request
     if request is None:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND.value, detail="Request not found")
     return RequestResponse.model_validate(request, from_attributes=True)
+
+
+@app.post(
+    "/imports/csv/validate",
+    response_model=CsvValidationResult,
+)
+def validate_csv_import(file: UploadFile) -> CsvValidationResult:
+    data = file.file.read(MAX_CSV_SIZE + 1)
+    if len(data) > MAX_CSV_SIZE:
+        raise HTTPException(413, "CSV file is too large")
+
+    with TemporaryDirectory() as directory:
+        csv_path = Path(directory) / "input.csv"
+        csv_path.write_bytes(data)
+        try:
+            return validate_csv_file(csv_path)
+        except UnicodeDecodeError as error:
+            raise HTTPException(400, "CSV must be UTF-8 encoded") from error
+        except (ValueError, csv.Error) as error:
+            raise HTTPException(
+                status_code=HTTPStatus.BAD_REQUEST,
+                detail=str(error),
+            ) from error
