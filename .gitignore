@@ -22,3 +22,6 @@ wheels/
 # Logs and generated reports
 *.log
 reports/
+
+# macOS
+.DS_Store
