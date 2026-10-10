@@ -1,0 +1,4 @@
+external_request_id,client_name,phone,email,inn,product_type,amount,created_at
+DEMO-001,Тестовый клиент A,+70000000001,operator@example.test,000000000001,LOAN,125000.50,2026-10-10T10:00:00
+DEMO-001,Тестовый клиент B,+70000000001,operator@example.test,000000000001,LOAN,99000.00,2026-10-10T10:00:00
+DEMO-002,Тестовый клиент C,+70000000001,operator@example.test,000000000001,LOAN,0.00,2026-10-10T10:00:00
