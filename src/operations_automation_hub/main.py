@@ -11,8 +11,10 @@ from sqlalchemy.orm import Session
 from operations_automation_hub.database import get_db
 from operations_automation_hub.importers.csv_import import validate_csv_file
 from operations_automation_hub.models.request import RequestModel
+from operations_automation_hub.repositories.job_repository import JobRepository
 from operations_automation_hub.repositories.request_repository import RequestRepository
 from operations_automation_hub.schemas.csv_import import CsvValidationResult
+from operations_automation_hub.schemas.job import JobResponse
 from operations_automation_hub.schemas.request import RequestCreate, RequestResponse, RequestStatus
 
 MAX_CSV_SIZE = 1_048_576
@@ -102,3 +104,27 @@ def validate_csv_import(file: UploadFile) -> CsvValidationResult:
                 status_code=HTTPStatus.BAD_REQUEST,
                 detail=str(error),
             ) from error
+
+
+@app.get(
+    "/jobs/{job_id}",
+    response_model=JobResponse,
+    responses={
+        HTTPStatus.NOT_FOUND.value: {
+            "description": "Job not found",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Job not found",
+                    }
+                }
+            },
+        }
+    },
+)
+def job_get(job_id: UUID, session: Session = Depends(get_db)) -> JobResponse:
+    repository = JobRepository(session)
+    job = repository.get_by_id(job_id)
+    if job is None:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND.value, detail="Job not found")
+    return JobResponse.model_validate(job)
