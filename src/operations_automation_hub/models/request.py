@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import DateTime, Enum, Numeric, String, Uuid
+from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from operations_automation_hub.models.base import Base
@@ -22,4 +22,10 @@ class RequestModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[RequestStatus] = mapped_column(
         Enum(RequestStatus, name="request_status"), nullable=False
+    )
+    job_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("jobs.job_id", name="fk_requests_job_id_jobs"),
+        nullable=True,
+        index=True,
     )
