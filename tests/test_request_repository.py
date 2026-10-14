@@ -3,10 +3,14 @@ from decimal import Decimal
 from uuid import uuid4
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from operations_automation_hub.database import SessionLocal
+from operations_automation_hub.models.job import JobModel
 from operations_automation_hub.models.request import RequestModel
+from operations_automation_hub.repositories.job_repository import JobRepository
 from operations_automation_hub.repositories.request_repository import RequestRepository
+from operations_automation_hub.schemas.job import JobStatus
 from operations_automation_hub.schemas.request import RequestStatus
 
 
@@ -43,6 +47,7 @@ def test_create_and_get_request():
             assert found.amount == request.amount
             assert found.created_at == request.created_at
             assert found.status == RequestStatus.NEW
+            assert found.job_id is None
         finally:
             session.rollback()
 
@@ -55,5 +60,70 @@ def test_get_by_id_returns_none_for_missing():
             random_id = uuid4()
             result = repository.get_by_id(random_id)
             assert result is None
+        finally:
+            session.rollback()
+
+
+@pytest.mark.integration
+def test_create_request_with_existing_job():
+    with SessionLocal() as session:
+        job_repository = JobRepository(session)
+        request_repository = RequestRepository(session)
+        try:
+            job = JobModel(
+                job_id=uuid4(),
+                status=JobStatus.PENDING,
+                created_at=datetime(2026, 9, 12, 10, 30, tzinfo=timezone.utc),
+            )
+            job_repository.create(job)
+
+            request = RequestModel(
+                request_id=uuid4(),
+                external_request_id=f"TEST-{uuid4()}",
+                client_name="Иван Петров",
+                phone="+79991234567",
+                email="ivan.petrov@example.test",
+                inn="7707083893",
+                product_type="CONSUMER_LOAN",
+                amount=Decimal("125000.50"),
+                created_at=datetime(2026, 9, 12, 10, 30, tzinfo=timezone.utc),
+                status=RequestStatus.NEW,
+                job_id=job.job_id,
+            )
+            request_repository.create(request)
+            session.expunge_all()
+
+            found = request_repository.get_by_id(request.request_id)
+            assert found is not None
+            assert found is not request
+            assert found.job_id == job.job_id
+        finally:
+            session.rollback()
+
+
+@pytest.mark.integration
+def test_create_request_with_missing_job_raises_integrity_error():
+    with SessionLocal() as session:
+        repository = RequestRepository(session)
+        try:
+            request = RequestModel(
+                request_id=uuid4(),
+                external_request_id=f"TEST-{uuid4()}",
+                client_name="Иван Петров",
+                phone="+79991234567",
+                email="ivan.petrov@example.test",
+                inn="7707083893",
+                product_type="CONSUMER_LOAN",
+                amount=Decimal("125000.50"),
+                created_at=datetime(2026, 9, 12, 10, 30, tzinfo=timezone.utc),
+                status=RequestStatus.NEW,
+                job_id=uuid4(),
+            )
+            with pytest.raises(IntegrityError) as exc_info:
+                repository.create(request)
+
+            error = exc_info.value.orig
+            assert error.sqlstate == "23503"
+            assert error.diag.constraint_name == "fk_requests_job_id_jobs"
         finally:
             session.rollback()
