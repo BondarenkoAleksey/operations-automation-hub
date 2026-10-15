@@ -12,3 +12,14 @@ def find_duplicate_request_ids(
             duplicates.add(request_id)
         seen.add(request_id)
     return duplicates
+
+
+def exclude_duplicate_requests(
+    requests: list[RequestCreate],
+) -> list[RequestCreate]:
+    duplicates = find_duplicate_request_ids(requests)
+    filtered = []
+    for request in requests:
+        if request.external_request_id not in duplicates:
+            filtered.append(request)
+    return filtered
