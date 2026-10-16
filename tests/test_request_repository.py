@@ -127,3 +127,68 @@ def test_create_request_with_missing_job_raises_integrity_error():
             assert error.diag.constraint_name == "fk_requests_job_id_jobs"
         finally:
             session.rollback()
+
+
+def make_request(external_request_id: str) -> RequestModel:
+    return RequestModel(
+        request_id=uuid4(),
+        external_request_id=external_request_id,
+        client_name="Тест Тестович",
+        phone="+79001234567",
+        email="mail@mail.com",
+        inn="841827179762",
+        product_type="тест_тип_продукта",
+        amount=Decimal("125000.50"),
+        created_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+        status=RequestStatus.NEW,
+    )
+
+
+@pytest.mark.integration
+def test_find_existing_external_request_ids_with_empty_input():
+    ids = set()
+    with SessionLocal() as session:
+        repository = RequestRepository(session)
+        result = repository.find_existing_external_request_ids(ids)
+        assert result == set()
+        assert isinstance(result, set)
+
+
+@pytest.mark.integration
+def test_find_existing_external_request_ids_without_matches():
+    with SessionLocal() as session:
+        repository = RequestRepository(session)
+        try:
+            repository.create(make_request(external_request_id=f"TEST-{uuid4()}"))
+
+            ids = {f"TEST-{uuid4()}", f"TEST-{uuid4()}"}
+            result = repository.find_existing_external_request_ids(ids)
+
+            assert result == set()
+        finally:
+            session.rollback()
+
+
+@pytest.mark.integration
+def test_find_existing_external_request_ids_returns_only_matches():
+    with SessionLocal() as session:
+        repository = RequestRepository(session)
+        try:
+            external_request_id_a = f"TEST-{uuid4()}"
+            external_request_id_b = f"TEST-{uuid4()}"
+            external_request_id_c = f"TEST-{uuid4()}"
+
+            repository.create(make_request(external_request_id=external_request_id_a))
+            repository.create(make_request(external_request_id=external_request_id_b))
+            repository.create(make_request(external_request_id=external_request_id_c))
+
+            ids = {external_request_id_a, external_request_id_b, f"TEST-{uuid4()}"}
+            ids_before = set(ids)
+
+            result = repository.find_existing_external_request_ids(ids)
+
+            assert result == {external_request_id_a, external_request_id_b}
+            assert isinstance(result, set)
+            assert ids == ids_before
+        finally:
+            session.rollback()
