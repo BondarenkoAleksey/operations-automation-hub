@@ -241,3 +241,68 @@ def test_import_requests_rolls_back_job_and_requests_together():
             assert remaining == 0
         finally:
             session.rollback()
+
+
+def test_import_requests_can_be_rolled_back_after_partial_failure(monkeypatch):
+    original_create = RequestRepository.create
+    calls = {"count": 0}
+
+    def create_wrapper(self, request):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return original_create(self, request)
+        raise RuntimeError("Simulated request creation failure")
+
+    monkeypatch.setattr(RequestRepository, "create", create_wrapper)
+    with SessionLocal() as session:
+        service = RequestImportService(session)
+        try:
+            first_id = f"TEST-{uuid4()}"
+            second_id = f"TEST-{uuid4()}"
+            input_requests = [
+                make_request_create(first_id),
+                make_request_create(second_id),
+            ]
+            with pytest.raises(RuntimeError, match="Simulated request creation failure"):
+                service.import_requests(input_requests)
+            assert calls["count"] == 2
+            first_row = session.scalars(
+                select(RequestModel).where(RequestModel.external_request_id == first_id)
+            ).one()
+            assert first_row.job_id is not None
+            job_id_value = first_row.job_id
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(JobModel)
+                    .where(JobModel.job_id == job_id_value)
+                )
+                == 1
+            )
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(RequestModel)
+                    .where(RequestModel.external_request_id == second_id)
+                )
+                == 0
+            )
+            session.rollback()
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(JobModel)
+                    .where(JobModel.job_id == job_id_value)
+                )
+                == 0
+            )
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(RequestModel)
+                    .where(RequestModel.external_request_id.in_([first_id, second_id]))
+                )
+                == 0
+            )
+        finally:
+            session.rollback()
