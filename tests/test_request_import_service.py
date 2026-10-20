@@ -81,9 +81,13 @@ def test_import_requests_creates_job_and_linked_requests():
             input_requests = [first, second]
             dumps_before = [r.model_dump() for r in input_requests]
 
-            job = service.import_requests(input_requests)
+            result = service.import_requests(input_requests)
 
-            assert job is not None
+            assert result.job is not None
+            assert result.imported_count == 2
+            assert result.duplicate_request_ids == []
+            assert result.existing_request_ids == []
+            job = result.job
             assert job.status == JobStatus.PENDING
             session.expunge_all()
 
@@ -128,7 +132,10 @@ def test_import_requests_with_empty_input_creates_no_job():
             result = service.import_requests([])
 
             count_after = count_jobs(session)
-            assert result is None
+            assert result.job is None
+            assert result.imported_count == 0
+            assert result.duplicate_request_ids == []
+            assert result.existing_request_ids == []
             assert count_after == count_before
         finally:
             session.rollback()
@@ -154,9 +161,14 @@ def test_import_requests_skips_duplicates_and_existing_ids():
             ]
             dumps_before = [r.model_dump() for r in input_requests]
 
-            job = service.import_requests(input_requests)
+            result = service.import_requests(input_requests)
 
-            assert job is not None
+            assert result.job is not None
+            assert result.imported_count == 1
+            assert result.duplicate_request_ids == [id_b]
+            assert result.existing_request_ids == [id_a]
+            job = result.job
+
             rows = session.scalars(
                 select(RequestModel).where(RequestModel.job_id == job.job_id)
             ).all()
@@ -199,7 +211,14 @@ def test_import_requests_with_only_skipped_records_creates_nothing(case):
 
             result = service.import_requests(input_requests)
 
-            assert result is None
+            assert result.job is None
+            assert result.imported_count == 0
+            if case == "already-exists":
+                assert result.duplicate_request_ids == []
+                assert result.existing_request_ids == [existing.external_request_id]
+            else:
+                assert result.duplicate_request_ids == [duplicated_id]
+                assert result.existing_request_ids == []
             assert count_jobs(session) == jobs_before
             assert count_requests(session) == requests_before
         finally:
@@ -213,10 +232,14 @@ def test_import_requests_rolls_back_job_and_requests_together():
             first = make_request_create(f"TEST-{uuid4()}")
             second = make_request_create(f"TEST-{uuid4()}")
 
-            job = service.import_requests([first, second])
+            result = service.import_requests([first, second])
 
-            assert job is not None
-            job_id_value = job.job_id
+            assert result.job is not None
+            assert result.imported_count == 2
+            assert result.duplicate_request_ids == []
+            assert result.existing_request_ids == []
+            job_id_value = result.job.job_id
+
             rows = session.scalars(
                 select(RequestModel).where(RequestModel.job_id == job_id_value)
             ).all()
@@ -304,5 +327,74 @@ def test_import_requests_can_be_rolled_back_after_partial_failure(monkeypatch):
                 )
                 == 0
             )
+        finally:
+            session.rollback()
+
+
+def test_import_requests_reports_existing_duplicated_id_only_as_duplicate():
+    with SessionLocal() as session:
+        service = RequestImportService(session)
+        request_repository = RequestRepository(session)
+        try:
+            existing_id = f"TEST-{uuid4()}"
+            existing = make_request_model(existing_id)
+            request_repository.create(existing)
+
+            jobs_before = count_jobs(session)
+            requests_before = count_requests(session)
+
+            input_requests = [
+                make_request_create(existing_id),
+                make_request_create(existing_id),
+            ]
+            result = service.import_requests(input_requests)
+
+            assert result.job is None
+            assert result.imported_count == 0
+            assert result.duplicate_request_ids == [existing_id]
+            assert result.existing_request_ids == []
+            assert count_jobs(session) == jobs_before
+            assert count_requests(session) == requests_before
+        finally:
+            session.rollback()
+
+
+def test_import_requests_returns_sorted_unique_skipped_ids():
+    with SessionLocal() as session:
+        service = RequestImportService(session)
+        request_repository = RequestRepository(session)
+        try:
+            prefix = uuid4()
+            exist_b = f"{prefix}-EXIST-B"
+            exist_a = f"{prefix}-EXIST-A"
+            dup_b = f"{prefix}-DUP-B"
+            dup_a = f"{prefix}-DUP-A"
+            fresh_id = f"{prefix}-FRESH"
+
+            request_repository.create(make_request_model(exist_b))
+            request_repository.create(make_request_model(exist_a))
+
+            input_requests = [
+                make_request_create(exist_b),
+                make_request_create(dup_b),
+                make_request_create(dup_b),
+                make_request_create(dup_b),
+                make_request_create(exist_a),
+                make_request_create(dup_a),
+                make_request_create(dup_a),
+                make_request_create(fresh_id),
+            ]
+
+            result = service.import_requests(input_requests)
+
+            assert result.job is not None
+            assert result.imported_count == 1
+            assert result.duplicate_request_ids == [dup_a, dup_b]
+            assert result.existing_request_ids == [exist_a, exist_b]
+
+            rows = session.scalars(
+                select(RequestModel).where(RequestModel.job_id == result.job.job_id)
+            ).all()
+            assert [row.external_request_id for row in rows] == [fresh_id]
         finally:
             session.rollback()
