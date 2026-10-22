@@ -270,3 +270,14 @@ def test_csv_import_rolls_back_when_commit_fails(api_db, monkeypatch):
         )
         == 0
     )
+
+
+def test_csv_import_invalid_encoding_creates_nothing(api_db):
+    client, session = api_db
+    jobs_before = session.scalar(select(func.count()).select_from(JobModel))
+    requests_before = session.scalar(select(func.count()).select_from(RequestModel))
+    response = post_csv(client, b"\xff\xfe")
+    assert response.status_code == 400
+    assert response.json()["detail"] == "CSV must be UTF-8 encoded"
+    assert session.scalar(select(func.count()).select_from(JobModel)) == jobs_before
+    assert session.scalar(select(func.count()).select_from(RequestModel)) == requests_before
