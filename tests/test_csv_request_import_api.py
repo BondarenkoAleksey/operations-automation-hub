@@ -281,3 +281,14 @@ def test_csv_import_invalid_encoding_creates_nothing(api_db):
     assert response.json()["detail"] == "CSV must be UTF-8 encoded"
     assert session.scalar(select(func.count()).select_from(JobModel)) == jobs_before
     assert session.scalar(select(func.count()).select_from(RequestModel)) == requests_before
+
+
+def test_csv_import_missing_file_creates_nothing(api_db):
+    client, session = api_db
+    jobs_before = session.scalar(select(func.count()).select_from(JobModel))
+    requests_before = session.scalar(select(func.count()).select_from(RequestModel))
+    response = client.post("/imports/csv")
+    assert response.status_code == 422
+    assert any(item["loc"] == ["body", "file"] for item in response.json()["detail"])
+    assert session.scalar(select(func.count()).select_from(JobModel)) == jobs_before
+    assert session.scalar(select(func.count()).select_from(RequestModel)) == requests_before
