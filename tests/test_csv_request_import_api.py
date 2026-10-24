@@ -292,3 +292,15 @@ def test_csv_import_missing_file_creates_nothing(api_db):
     assert any(item["loc"] == ["body", "file"] for item in response.json()["detail"])
     assert session.scalar(select(func.count()).select_from(JobModel)) == jobs_before
     assert session.scalar(select(func.count()).select_from(RequestModel)) == requests_before
+
+
+def test_csv_import_oversized_file_creates_nothing(api_db):
+    client, session = api_db
+    jobs_before = session.scalar(select(func.count()).select_from(JobModel))
+    requests_before = session.scalar(select(func.count()).select_from(RequestModel))
+    content = b"a" * (1_048_576 + 1)
+    response = post_csv(client, content)
+    assert response.status_code == 413
+    assert response.json()["detail"] == "CSV file is too large"
+    assert session.scalar(select(func.count()).select_from(JobModel)) == jobs_before
+    assert session.scalar(select(func.count()).select_from(RequestModel)) == requests_before
