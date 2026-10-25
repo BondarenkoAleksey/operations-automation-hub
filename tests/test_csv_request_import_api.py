@@ -304,3 +304,27 @@ def test_csv_import_oversized_file_creates_nothing(api_db):
     assert response.json()["detail"] == "CSV file is too large"
     assert session.scalar(select(func.count()).select_from(JobModel)) == jobs_before
     assert session.scalar(select(func.count()).select_from(RequestModel)) == requests_before
+
+
+def test_csv_import_only_invalid_records_creates_nothing(api_db):
+    client, session = api_db
+    jobs_before = session.scalar(select(func.count()).select_from(JobModel))
+    requests_before = session.scalar(select(func.count()).select_from(RequestModel))
+    external_id = f"TEST-{uuid4()}"
+    content = (
+        HEADER + f"{external_id},Тестовый клиент,+79990000001,operator@example.test,"
+        "7707083893,CONSUMER_LOAN,0.00,2026-10-25T12:00:00\n"
+    ).encode("utf-8")
+    response = post_csv(client, content)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["job"] is None
+    assert body["imported_count"] == 0
+    assert body["duplicate_request_ids"] == []
+    assert body["existing_request_ids"] == []
+    assert len(body["issues"]) == 1
+    assert body["issues"][0]["record_number"] == 2
+    assert body["issues"][0]["field"] == "amount"
+    assert body["issues"][0]["error_type"] == "greater_than"
+    assert session.scalar(select(func.count()).select_from(JobModel)) == jobs_before
+    assert session.scalar(select(func.count()).select_from(RequestModel)) == requests_before
