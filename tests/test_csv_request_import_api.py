@@ -328,3 +328,29 @@ def test_csv_import_only_invalid_records_creates_nothing(api_db):
     assert body["issues"][0]["error_type"] == "greater_than"
     assert session.scalar(select(func.count()).select_from(JobModel)) == jobs_before
     assert session.scalar(select(func.count()).select_from(RequestModel)) == requests_before
+
+
+def test_csv_import_only_duplicates_creates_nothing(api_db):
+    duplicated_id = f"TEST-{uuid4()}"
+    record_one = (
+        f"{duplicated_id},Иван,+79990000001,ivan@test.ru,7707083893,LOAN,"
+        f"100.00,2026-09-12T10:30:00\n"
+    )
+    record_two = (
+        f"{duplicated_id},Петр,+79990000003,petr@test.ru,7707083895,LOAN,"
+        f"200.00,2026-07-12T15:20:00\n"
+    )
+    client, session = api_db
+    jobs_before = session.scalar(select(func.count()).select_from(JobModel))
+    requests_before = session.scalar(select(func.count()).select_from(RequestModel))
+    content = (HEADER + record_one + record_two).encode("utf-8")
+    response = post_csv(client, content)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["job"] is None
+    assert body["imported_count"] == 0
+    assert body["issues"] == []
+    assert body["duplicate_request_ids"] == [duplicated_id]
+    assert body["existing_request_ids"] == []
+    assert session.scalar(select(func.count()).select_from(JobModel)) == jobs_before
+    assert session.scalar(select(func.count()).select_from(RequestModel)) == requests_before
