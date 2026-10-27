@@ -354,3 +354,31 @@ def test_csv_import_only_duplicates_creates_nothing(api_db):
     assert body["existing_request_ids"] == []
     assert session.scalar(select(func.count()).select_from(JobModel)) == jobs_before
     assert session.scalar(select(func.count()).select_from(RequestModel)) == requests_before
+
+
+def test_csv_import_only_existing_records_creates_nothing(api_db):
+    client, session = api_db
+    existing_id = f"TEST-{uuid4()}"
+    existing = make_request_model(existing_id)
+    RequestRepository(session).create(existing)
+
+    jobs_before = session.scalar(select(func.count()).select_from(JobModel))
+    requests_before = session.scalar(select(func.count()).select_from(RequestModel))
+
+    content = (
+        HEADER + f"{existing_id},Тестовый клиент,+79990000001,operator@example.test,7707083893,"
+        f"CONSUMER_LOAN,125000.50,2026-10-21T12:00:00\n"
+    ).encode("utf-8")
+    response = post_csv(client, content)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["job"] is None
+    assert body["imported_count"] == 0
+    assert body["issues"] == []
+    assert body["duplicate_request_ids"] == []
+    assert body["existing_request_ids"] == [existing_id]
+    assert session.scalar(select(func.count()).select_from(JobModel)) == jobs_before
+    assert session.scalar(select(func.count()).select_from(RequestModel)) == requests_before
+    session.refresh(existing)
+    assert existing.job_id is None
