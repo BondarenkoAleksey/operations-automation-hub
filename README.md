@@ -15,8 +15,13 @@
 - pytest
 - Ruff
 - FastAPI
+- PostgreSQL
+- SQLAlchemy
+- Alembic
+- Docker
+- Docker Compose
 
-Стек будет расширяться постепенно: PostgreSQL, SQLAlchemy, Alembic, Docker, Redis, Celery, интеграции и мониторинг.
+Стек будет расширяться постепенно: Redis, Celery, интеграции и мониторинг.
 
 ## Подготовка окружения
 
