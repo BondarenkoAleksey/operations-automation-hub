@@ -1,20 +1,62 @@
 import logging
 
+import pytest
+
 from examples.logging_demo import run_demo
 
 
-def test_run_demo_logs_info_and_warning(caplog):
-    caplog.set_level(logging.INFO, logger="operations_demo")
-    run_demo()
-    assert caplog.record_tuples == [
+@pytest.mark.parametrize(
+    ("threshold", "expected_records"),
+    [
         (
-            "operations_demo",
+            logging.DEBUG,
+            [
+                (
+                    "operations_demo",
+                    logging.DEBUG,
+                    "Preparing demo",
+                ),
+                (
+                    "operations_demo",
+                    logging.INFO,
+                    "Demo started",
+                ),
+                (
+                    "operations_demo",
+                    logging.WARNING,
+                    "Demo warning: processing continues",
+                ),
+            ],
+        ),
+        (
             logging.INFO,
-            "Demo started",
+            [
+                (
+                    "operations_demo",
+                    logging.INFO,
+                    "Demo started",
+                ),
+                (
+                    "operations_demo",
+                    logging.WARNING,
+                    "Demo warning: processing continues",
+                ),
+            ],
         ),
         (
-            "operations_demo",
             logging.WARNING,
-            "Demo warning: processing continues",
+            [
+                (
+                    "operations_demo",
+                    logging.WARNING,
+                    "Demo warning: processing continues",
+                ),
+            ],
         ),
-    ]
+    ],
+    ids=["debug", "info", "warning"],
+)
+def test_run_demo_respects_logging_threshold(caplog, threshold, expected_records):
+    caplog.set_level(threshold, logger="operations_demo")
+    run_demo()
+    assert caplog.record_tuples == expected_records
