@@ -1,4 +1,5 @@
 import csv
+import logging
 from http import HTTPStatus
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -19,6 +20,8 @@ from operations_automation_hub.schemas.request import RequestCreate, RequestResp
 from operations_automation_hub.services.request_import_service import RequestImportService
 
 MAX_CSV_SIZE = 1_048_576
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Operations Automation Hub", version="0.1.0")
 
@@ -163,4 +166,10 @@ def import_csv_requests(
     except Exception:
         session.rollback()
         raise
+    if response.job is not None:
+        logger.info(
+            "CSV import completed: job_id=%s imported_count=%s",
+            response.job.job_id,
+            response.imported_count,
+        )
     return response

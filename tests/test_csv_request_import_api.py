@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -54,7 +55,7 @@ def post_csv(client, content: bytes):
     )
 
 
-def test_csv_import_creates_job_and_requests(api_db):
+def test_csv_import_creates_job_and_requests(api_db, caplog):
     first_id = f"TEST-{uuid4()}"
     second_id = f"TEST-{uuid4()}"
     record_one = (
@@ -65,6 +66,7 @@ def test_csv_import_creates_job_and_requests(api_db):
     )
     client, session = api_db
     content = (HEADER + record_one + record_two).encode("utf-8")
+    caplog.set_level(logging.INFO, logger="operations_automation_hub.main")
     response = post_csv(client, content)
     assert response.status_code == 200
     body = response.json()
@@ -83,6 +85,11 @@ def test_csv_import_creates_job_and_requests(api_db):
     assert set(by_external_id) == {first_id, second_id}
     assert by_external_id[first_id].status == RequestStatus.NEW
     assert by_external_id[second_id].status == RequestStatus.NEW
+    assert (
+        "operations_automation_hub.main",
+        logging.INFO,
+        f"CSV import completed: job_id={job_id} imported_count=2",
+    ) in caplog.record_tuples
 
 
 def test_csv_import_saves_valid_record_and_reports_issue(api_db):
