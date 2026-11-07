@@ -245,7 +245,7 @@ def test_csv_import_rolls_back_after_partial_failure(api_db, monkeypatch):
     )
 
 
-def test_csv_import_rolls_back_when_commit_fails(api_db, monkeypatch):
+def test_csv_import_rolls_back_when_commit_fails(api_db, monkeypatch, caplog):
     client, session = api_db
 
     def fail_commit():
@@ -264,6 +264,7 @@ def test_csv_import_rolls_back_when_commit_fails(api_db, monkeypatch):
         f"125000.50,2026-10-21T12:00:00\n"
     ).encode("utf-8")
 
+    caplog.set_level(logging.INFO, logger="operations_automation_hub.main")
     with pytest.raises(RuntimeError, match="Simulated commit failure"):
         post_csv(client, content)
 
@@ -276,6 +277,11 @@ def test_csv_import_rolls_back_when_commit_fails(api_db, monkeypatch):
             .where(RequestModel.external_request_id == new_id)
         )
         == 0
+    )
+    assert not any(
+        record.name == "operations_automation_hub.main"
+        and record.getMessage().startswith("CSV import completed:")
+        for record in caplog.records
     )
 
 
