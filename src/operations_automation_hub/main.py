@@ -165,6 +165,7 @@ def import_csv_requests(
         session.commit()
     except Exception:
         session.rollback()
+        logger.error("CSV import failed")
         raise
     if response.job is not None:
         logger.info(
