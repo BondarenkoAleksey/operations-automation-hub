@@ -283,6 +283,20 @@ def test_csv_import_rolls_back_when_commit_fails(api_db, monkeypatch, caplog):
         and record.getMessage().startswith("CSV import completed:")
         for record in caplog.records
     )
+    assert (
+        "operations_automation_hub.main",
+        logging.ERROR,
+        "CSV import failed",
+    ) in caplog.record_tuples
+    failure_records = [
+        record
+        for record in caplog.records
+        if record.name == "operations_automation_hub.main"
+        and record.levelno == logging.ERROR
+        and record.getMessage() == "CSV import failed"
+    ]
+    assert len(failure_records) == 1
+    assert failure_records[0].exc_info is None
 
 
 def test_csv_import_invalid_encoding_creates_nothing(api_db):
