@@ -277,8 +277,15 @@ curl -sS \
 Запуск uvicorn на 8000 порте с автоперезагрузкой.
 
 ```bash
-uv run uvicorn operations_automation_hub.main:app --reload --host 127.0.0.1 --port 8000
+uv run uvicorn operations_automation_hub.main:app \
+  --reload \
+  --host 127.0.0.1 \
+  --port 8000 \
+  --log-config logging.json
 ```
+Команду нужно выполнять из корня проекта. Файл `logging.json` настраивает
+текстовый вывод логов приложения и Uvicorn в stderr с порогом INFO.
+После изменения конфигурации перезапустите сервер.
 
 Для обычной остановки сервера нажми `Ctrl+C` в терминале, где он запущен.
 
