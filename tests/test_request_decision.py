@@ -1,3 +1,5 @@
+import pytest
+
 from operations_automation_hub.schemas.request import RequestStatus
 from operations_automation_hub.services.request_decision import (
     DecisionReason,
@@ -6,12 +8,49 @@ from operations_automation_hub.services.request_decision import (
 )
 
 
-def test_decide_request_returns_none_when_inn_is_valid():
-    assert decide_request(inn_is_valid=True) is None
-
-
-def test_decide_request_rejects_when_inn_is_invalid():
-    assert decide_request(inn_is_valid=False) == RequestDecision(
-        status=RequestStatus.REJECTED,
-        reason=DecisionReason.INVALID_INN,
+@pytest.mark.parametrize(
+    ("inn_is_valid", "risk_score", "expected"),
+    [
+        (True, 79, None),
+        (
+            True,
+            80,
+            RequestDecision(
+                status=RequestStatus.MANUAL_REVIEW,
+                reason=DecisionReason.HIGH_RISK_SCORE,
+            ),
+        ),
+        (
+            True,
+            81,
+            RequestDecision(
+                status=RequestStatus.MANUAL_REVIEW,
+                reason=DecisionReason.HIGH_RISK_SCORE,
+            ),
+        ),
+        (
+            False,
+            0,
+            RequestDecision(
+                status=RequestStatus.REJECTED,
+                reason=DecisionReason.INVALID_INN,
+            ),
+        ),
+        (
+            False,
+            95,
+            RequestDecision(
+                status=RequestStatus.REJECTED,
+                reason=DecisionReason.INVALID_INN,
+            ),
+        ),
+    ],
+)
+def test_decide_request(inn_is_valid, risk_score, expected):
+    assert (
+        decide_request(
+            inn_is_valid=inn_is_valid,
+            risk_score=risk_score,
+        )
+        == expected
     )
