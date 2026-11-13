@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 
 from operations_automation_hub.schemas.request import RequestStatus
@@ -10,13 +12,14 @@ from operations_automation_hub.services.request_decision import (
 
 
 @pytest.mark.parametrize(
-    ("inn_is_valid", "risk_score", "scoring_status", "expected"),
+    ("inn_is_valid", "risk_score", "scoring_status", "amount", "expected"),
     [
-        (True, 79, ScoringStatus.APPROVED, None),
+        (True, 79, ScoringStatus.APPROVED, Decimal("100000.00"), None),
         (
             True,
             80,
             ScoringStatus.APPROVED,
+            Decimal("100000.00"),
             RequestDecision(
                 status=RequestStatus.MANUAL_REVIEW,
                 reason=DecisionReason.HIGH_RISK_SCORE,
@@ -26,6 +29,7 @@ from operations_automation_hub.services.request_decision import (
             True,
             81,
             ScoringStatus.APPROVED,
+            Decimal("100000.00"),
             RequestDecision(
                 status=RequestStatus.MANUAL_REVIEW,
                 reason=DecisionReason.HIGH_RISK_SCORE,
@@ -35,6 +39,7 @@ from operations_automation_hub.services.request_decision import (
             False,
             0,
             ScoringStatus.APPROVED,
+            Decimal("100000.00"),
             RequestDecision(
                 status=RequestStatus.REJECTED,
                 reason=DecisionReason.INVALID_INN,
@@ -44,6 +49,7 @@ from operations_automation_hub.services.request_decision import (
             False,
             95,
             ScoringStatus.APPROVED,
+            Decimal("100000.00"),
             RequestDecision(
                 status=RequestStatus.REJECTED,
                 reason=DecisionReason.INVALID_INN,
@@ -53,6 +59,7 @@ from operations_automation_hub.services.request_decision import (
             True,
             79,
             ScoringStatus.DECLINED,
+            Decimal("100000.00"),
             RequestDecision(
                 status=RequestStatus.REJECTED,
                 reason=DecisionReason.SCORING_DECLINED,
@@ -62,6 +69,7 @@ from operations_automation_hub.services.request_decision import (
             True,
             80,
             ScoringStatus.DECLINED,
+            Decimal("100000.00"),
             RequestDecision(
                 status=RequestStatus.MANUAL_REVIEW,
                 reason=DecisionReason.HIGH_RISK_SCORE,
@@ -71,6 +79,61 @@ from operations_automation_hub.services.request_decision import (
             False,
             95,
             ScoringStatus.DECLINED,
+            Decimal("100000.00"),
+            RequestDecision(
+                status=RequestStatus.REJECTED,
+                reason=DecisionReason.INVALID_INN,
+            ),
+        ),
+        (
+            True,
+            10,
+            ScoringStatus.APPROVED,
+            Decimal("499999.99"),
+            None,
+        ),
+        (
+            True,
+            10,
+            ScoringStatus.APPROVED,
+            Decimal("500000.00"),
+            None,
+        ),
+        (
+            True,
+            10,
+            ScoringStatus.APPROVED,
+            Decimal("500000.01"),
+            RequestDecision(
+                status=RequestStatus.MANUAL_REVIEW,
+                reason=DecisionReason.HIGH_AMOUNT,
+            ),
+        ),
+        (
+            True,
+            80,
+            ScoringStatus.APPROVED,
+            Decimal("700000.00"),
+            RequestDecision(
+                status=RequestStatus.MANUAL_REVIEW,
+                reason=DecisionReason.HIGH_RISK_SCORE,
+            ),
+        ),
+        (
+            True,
+            10,
+            ScoringStatus.DECLINED,
+            Decimal("700000.00"),
+            RequestDecision(
+                status=RequestStatus.REJECTED,
+                reason=DecisionReason.SCORING_DECLINED,
+            ),
+        ),
+        (
+            False,
+            10,
+            ScoringStatus.APPROVED,
+            Decimal("700000.00"),
             RequestDecision(
                 status=RequestStatus.REJECTED,
                 reason=DecisionReason.INVALID_INN,
@@ -78,12 +141,13 @@ from operations_automation_hub.services.request_decision import (
         ),
     ],
 )
-def test_decide_request(inn_is_valid, risk_score, scoring_status, expected):
+def test_decide_request(inn_is_valid, risk_score, scoring_status, amount, expected):
     assert (
         decide_request(
             inn_is_valid=inn_is_valid,
             risk_score=risk_score,
             scoring_status=scoring_status,
+            amount=amount,
         )
         == expected
     )
