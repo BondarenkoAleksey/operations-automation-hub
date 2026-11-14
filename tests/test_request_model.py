@@ -1,4 +1,4 @@
-from sqlalchemy import Uuid
+from sqlalchemy import String, Uuid
 
 from operations_automation_hub.models.base import Base
 from operations_automation_hub.models.request import RequestModel
@@ -27,6 +27,7 @@ def test_request_model_has_expected_columns():
         "created_at",
         "status",
         "job_id",
+        "decision_reason",
     }
 
 
@@ -39,7 +40,10 @@ def test_request_model_has_expected_column_constraints():
     assert table.c.status.nullable is False
     unique_columns = {column.name for column in table.columns if column.unique}
     assert unique_columns == {"external_request_id"}
-    assert all(column.nullable is False for column in table.columns if column.name != "job_id")
+    nullable_columns = {"job_id", "decision_reason"}
+    assert all(
+        column.nullable is False for column in table.columns if column.name not in nullable_columns
+    )
 
 
 def test_request_model_has_optional_job_reference():
@@ -55,3 +59,11 @@ def test_request_model_has_optional_job_reference():
     ]
     assert len(job_id_indexes) == 1
     assert job_id_indexes[0].unique is False
+
+
+def test_request_model_has_optional_decision_reason():
+    assert isinstance(table.c.decision_reason.type, String)
+    assert table.c.decision_reason.type.length == 64
+    assert table.c.decision_reason.nullable is True
+    assert table.c.decision_reason.default is None
+    assert table.c.decision_reason.server_default is None

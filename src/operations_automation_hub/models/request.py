@@ -23,6 +23,7 @@ class RequestModel(Base):
     status: Mapped[RequestStatus] = mapped_column(
         Enum(RequestStatus, name="request_status"), nullable=False
     )
+    decision_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
     job_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("jobs.job_id", name="fk_requests_job_id_jobs"),

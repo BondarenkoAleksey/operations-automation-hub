@@ -171,7 +171,7 @@ docker compose exec postgres psql -U operations_user -d operations_automation_hu
 
 #### PostgreSQL работает в Docker, но Python получает `Connection refused`
 
-Если контейнер имеет статус `healthy`, но Python/FastAPI, запущенный на macOS, не подключается к `localhost:5432`, проверь публикацию порта:
+Если контейнер имеет статус `healthy`, но Python/FastAPI, запущенный на macOS, не подключается к `127.0.0.1:55432`, проверь публикацию порта:
 
 ```bash
 docker compose ps
@@ -181,7 +181,7 @@ docker compose port postgres 5432
 В выводе `docker compose ps` должен быть опубликованный порт, похожий на:
 
 ```text
-0.0.0.0:5432->5432/tcp
+127.0.0.1:55432->5432/tcp
 ```
 
 Если отображается только:
@@ -190,7 +190,9 @@ docker compose port postgres 5432
 5432/tcp
 ```
 
-PostgreSQL доступен лишь внутри Docker network, а приложение, запущенное на хост-машине, не сможет подключиться к `localhost:5432`.
+Если порт не опубликован, PostgreSQL доступен внутри Docker network,
+но приложение, запущенное на хост-машине, не сможет подключиться
+к нему через 127.0.0.1:55432.
 
 Для пересоздания контейнера без удаления named volume:
 
@@ -203,7 +205,7 @@ docker compose up -d --force-recreate postgres
 - Локальные переменные PostgreSQL лежат в `.env`.
 - `.env` создаётся на основе `.env.example`.
 - `.env` не коммитится.
-- При запуске FastAPI на хосте используйте `POSTGRES_HOST=localhost`.
+- При запуске FastAPI на хосте используйте `POSTGRES_HOST=127.0.0.1` и `POSTGRES_PORT=55432`.
 - Когда FastAPI будет запущен в Docker Compose, hostname будет `postgres` — имя Compose-сервиса.
 - Внутри Docker-контейнера `localhost` указывает на сам контейнер FastAPI, а не на PostgreSQL.
 
