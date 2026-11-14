@@ -192,3 +192,81 @@ def test_find_existing_external_request_ids_returns_only_matches():
             assert ids == ids_before
         finally:
             session.rollback()
+
+
+@pytest.mark.integration
+def test_update_decision_updates_status_and_reason():
+    with SessionLocal() as session:
+        repository = RequestRepository(session)
+        try:
+            request = make_request(external_request_id=f"TEST-{uuid4()}")
+            repository.create(request)
+            request_id = request.request_id
+            assert request.status == RequestStatus.NEW
+            assert request.decision_reason is None
+            updated = repository.update_decision(
+                request_id,
+                status=RequestStatus.MANUAL_REVIEW,
+                decision_reason="HIGH_AMOUNT",
+            )
+            assert updated is not None
+            assert updated.request_id == request_id
+            assert updated.status == RequestStatus.MANUAL_REVIEW
+            assert updated.decision_reason == "HIGH_AMOUNT"
+            session.expunge_all()
+            found = repository.get_by_id(request_id)
+            assert found is not None
+            assert found.request_id == request_id
+            assert found.status == RequestStatus.MANUAL_REVIEW
+            assert found.decision_reason == "HIGH_AMOUNT"
+        finally:
+            session.rollback()
+
+
+@pytest.mark.integration
+def test_update_decision_returns_none_for_missing_request():
+    with SessionLocal() as session:
+        repository = RequestRepository(session)
+        try:
+            request_id = uuid4()
+            updated = repository.update_decision(
+                request_id,
+                status=RequestStatus.MANUAL_REVIEW,
+                decision_reason="HIGH_AMOUNT",
+            )
+            assert updated is None
+
+            found = repository.get_by_id(request_id)
+            assert found is None
+        finally:
+            session.rollback()
+
+
+@pytest.mark.integration
+def test_update_decision_does_not_change_another_request():
+    with SessionLocal() as session:
+        repository = RequestRepository(session)
+        try:
+            request_one = make_request(external_request_id=f"TEST-{uuid4()}")
+            request_two = make_request(external_request_id=f"TEST-{uuid4()}")
+            repository.create(request_one)
+            request_id_one = request_one.request_id
+            repository.create(request_two)
+            request_id_two = request_two.request_id
+            repository.update_decision(
+                request_id_one,
+                status=RequestStatus.MANUAL_REVIEW,
+                decision_reason="HIGH_AMOUNT",
+            )
+            session.expunge_all()
+            found_one = repository.get_by_id(request_id_one)
+            found_two = repository.get_by_id(request_id_two)
+            assert found_one is not None
+            assert found_one.decision_reason == "HIGH_AMOUNT"
+            assert found_one.status == RequestStatus.MANUAL_REVIEW
+            assert found_two is not None
+            assert found_two.decision_reason is None
+            assert found_two.status == RequestStatus.NEW
+
+        finally:
+            session.rollback()

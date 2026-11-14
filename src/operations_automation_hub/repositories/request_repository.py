@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from operations_automation_hub.models.request import RequestModel
+from operations_automation_hub.schemas.request import RequestStatus
 
 
 class RequestRepository:
@@ -28,3 +29,18 @@ class RequestRepository:
             RequestModel.external_request_id.in_(external_request_ids)
         )
         return set(self._session.scalars(stmt))
+
+    def update_decision(
+        self,
+        request_id: UUID,
+        *,
+        status: RequestStatus,
+        decision_reason: str,
+    ) -> RequestModel | None:
+        request = self.get_by_id(request_id)
+        if request is None:
+            return None
+        request.status = status
+        request.decision_reason = decision_reason
+        self._session.flush()
+        return request
