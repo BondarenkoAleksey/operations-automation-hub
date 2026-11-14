@@ -14,7 +14,15 @@ from operations_automation_hub.services.request_decision import (
 @pytest.mark.parametrize(
     ("inn_is_valid", "risk_score", "scoring_status", "amount", "expected"),
     [
-        (True, 79, ScoringStatus.APPROVED, Decimal("100000.00"), None),
+        (
+            True,
+            79,
+            ScoringStatus.APPROVED,
+            Decimal("100000.00"),
+            RequestDecision(
+                status=RequestStatus.APPROVED, reason=DecisionReason.AUTOMATIC_APPROVAL
+            ),
+        ),
         (
             True,
             80,
@@ -90,14 +98,18 @@ from operations_automation_hub.services.request_decision import (
             10,
             ScoringStatus.APPROVED,
             Decimal("499999.99"),
-            None,
+            RequestDecision(
+                status=RequestStatus.APPROVED, reason=DecisionReason.AUTOMATIC_APPROVAL
+            ),
         ),
         (
             True,
             10,
             ScoringStatus.APPROVED,
             Decimal("500000.00"),
-            None,
+            RequestDecision(
+                status=RequestStatus.APPROVED, reason=DecisionReason.AUTOMATIC_APPROVAL
+            ),
         ),
         (
             True,

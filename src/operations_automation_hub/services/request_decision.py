@@ -15,6 +15,7 @@ class DecisionReason(StrEnum):
     HIGH_RISK_SCORE = "HIGH_RISK_SCORE"
     SCORING_DECLINED = "SCORING_DECLINED"
     HIGH_AMOUNT = "HIGH_AMOUNT"
+    AUTOMATIC_APPROVAL = "AUTOMATIC_APPROVAL"
 
 
 @dataclass(frozen=True)
@@ -29,7 +30,7 @@ def decide_request(
     risk_score: int,
     scoring_status: ScoringStatus,
     amount: Decimal,
-) -> RequestDecision | None:
+) -> RequestDecision:
     if not inn_is_valid:
         return RequestDecision(
             status=RequestStatus.REJECTED,
@@ -49,4 +50,4 @@ def decide_request(
         return RequestDecision(
             status=RequestStatus.MANUAL_REVIEW, reason=DecisionReason.HIGH_AMOUNT
         )
-    return None
+    return RequestDecision(status=RequestStatus.APPROVED, reason=DecisionReason.AUTOMATIC_APPROVAL)
