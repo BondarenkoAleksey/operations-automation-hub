@@ -270,3 +270,40 @@ def test_update_decision_does_not_change_another_request():
 
         finally:
             session.rollback()
+
+
+@pytest.mark.integration
+def test_update_decision_preserves_other_request_fields():
+    with SessionLocal() as session:
+        repository = RequestRepository(session)
+        try:
+            request = make_request(external_request_id=f"TEST-{uuid4()}")
+            repository.create(request)
+            request_id = request.request_id
+            original_fields = {
+                "external_request_id": request.external_request_id,
+                "client_name": request.client_name,
+                "phone": request.phone,
+                "email": request.email,
+                "inn": request.inn,
+                "product_type": request.product_type,
+                "amount": request.amount,
+                "created_at": request.created_at,
+                "job_id": request.job_id,
+            }
+            repository.update_decision(
+                request_id,
+                status=RequestStatus.MANUAL_REVIEW,
+                decision_reason="HIGH_AMOUNT",
+            )
+            session.expunge_all()
+            found = repository.get_by_id(request_id)
+            assert found is not None
+            assert found.request_id == request_id
+            assert found.status == RequestStatus.MANUAL_REVIEW
+            assert found.decision_reason == "HIGH_AMOUNT"
+            for field_name, expected_value in original_fields.items():
+                assert getattr(found, field_name) == expected_value, field_name
+
+        finally:
+            session.rollback()
