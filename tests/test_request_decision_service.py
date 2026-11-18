@@ -61,3 +61,18 @@ def test_apply_decision_uses_saved_amount_and_persists_result():
 
         finally:
             session.rollback()
+
+
+@pytest.mark.integration
+def test_apply_decision_returns_none_when_request_not_found():
+    with SessionLocal() as session:
+        service = RequestDecisionService(session)
+
+        request_id = uuid4()
+        result = service.apply_decision(
+            request_id,
+            inn_is_valid=True,
+            risk_score=10,
+            scoring_status=ScoringStatus.APPROVED,
+        )
+        assert result is None
