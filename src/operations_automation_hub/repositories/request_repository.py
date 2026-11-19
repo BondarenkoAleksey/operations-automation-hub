@@ -19,6 +19,10 @@ class RequestRepository:
     def get_by_id(self, request_id: UUID) -> RequestModel | None:
         return self._session.get(RequestModel, request_id)
 
+    def list_by_job_id(self, job_id: UUID) -> list[RequestModel]:
+        stmt = select(RequestModel).where(RequestModel.job_id == job_id)
+        return list(self._session.scalars(stmt))
+
     def find_existing_external_request_ids(
         self,
         external_request_ids: set[str],

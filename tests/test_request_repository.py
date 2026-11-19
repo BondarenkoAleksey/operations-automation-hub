@@ -307,3 +307,48 @@ def test_update_decision_preserves_other_request_fields():
 
         finally:
             session.rollback()
+
+
+@pytest.mark.integration
+def test_list_by_job_id_returns_only_requests_for_that_job():
+    with SessionLocal() as session:
+        job_repository = JobRepository(session)
+        request_repository = RequestRepository(session)
+        try:
+            job_a = JobModel(
+                job_id=uuid4(),
+                status=JobStatus.PENDING,
+                created_at=datetime(2026, 9, 12, 10, 30, tzinfo=timezone.utc),
+            )
+            job_b = JobModel(
+                job_id=uuid4(),
+                status=JobStatus.PENDING,
+                created_at=datetime(2026, 9, 12, 10, 30, tzinfo=timezone.utc),
+            )
+
+            job_repository.create(job_a)
+            job_repository.create(job_b)
+
+            request_a1 = make_request(f"TEST-{uuid4()}")
+            request_a2 = make_request(f"TEST-{uuid4()}")
+            request_b = make_request(f"TEST-{uuid4()}")
+            request_without_job = make_request(f"TEST-{uuid4()}")
+
+            request_a1.job_id = job_a.job_id
+            request_a2.job_id = job_a.job_id
+            request_b.job_id = job_b.job_id
+
+            request_repository.create(request_a1)
+            request_repository.create(request_a2)
+            request_repository.create(request_b)
+            request_repository.create(request_without_job)
+
+            result = request_repository.list_by_job_id(job_a.job_id)
+
+            assert {request.request_id for request in result} == {
+                request_a1.request_id,
+                request_a2.request_id,
+            }
+
+        finally:
+            session.rollback()
