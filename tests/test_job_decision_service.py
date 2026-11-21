@@ -81,3 +81,53 @@ def test_apply_decisions_updates_both_requests_in_job():
             assert updated_a2.decision_reason == "HIGH_AMOUNT"
         finally:
             session.rollback()
+
+
+@pytest.mark.integration
+def test_apply_decisions_only_updates_requests_in_target_job():
+    with SessionLocal() as session:
+        job_repository = JobRepository(session)
+        request_repository = RequestRepository(session)
+        try:
+            job_a = JobModel(
+                job_id=uuid4(),
+                status=JobStatus.PENDING,
+                created_at=datetime(2026, 9, 12, 10, 30, tzinfo=timezone.utc),
+            )
+            job_b = JobModel(
+                job_id=uuid4(),
+                status=JobStatus.PENDING,
+                created_at=datetime(2026, 9, 12, 10, 30, tzinfo=timezone.utc),
+            )
+
+            job_repository.create(job_a)
+            job_repository.create(job_b)
+
+            request_a = make_request(f"TEST-{uuid4()}")
+            request_b = make_request(f"TEST-{uuid4()}")
+            request_a.job_id = job_a.job_id
+            request_a.amount = Decimal("100.00")
+            request_repository.create(request_a)
+            checks_by_request_id = {
+                request_a.request_id: {
+                    "inn_is_valid": True,
+                    "risk_score": 10,
+                    "scoring_status": ScoringStatus.APPROVED,
+                },
+            }
+            request_b.job_id = job_b.job_id
+            request_repository.create(request_b)
+            service = JobDecisionService(session)
+            service.apply_decisions(job_a.job_id, checks_by_request_id)
+            updated_a = request_repository.get_by_id(request_a.request_id)
+            updated_b = request_repository.get_by_id(request_b.request_id)
+
+            assert updated_a is not None
+            assert updated_a.status == RequestStatus.APPROVED
+            assert updated_a.decision_reason == "AUTOMATIC_APPROVAL"
+
+            assert updated_b is not None
+            assert updated_b.status == RequestStatus.NEW
+
+        finally:
+            session.rollback()
