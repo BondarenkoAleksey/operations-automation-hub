@@ -209,7 +209,28 @@ docker compose up -d --force-recreate postgres
 - Когда FastAPI будет запущен в Docker Compose, hostname будет `postgres` — имя Compose-сервиса.
 - Внутри Docker-контейнера `localhost` указывает на сам контейнер FastAPI, а не на PostgreSQL.
 
+### Локальная проверка Celery
+Проверка подтверждает доставку и выполнение пробной задачи через Redis и Celery. Она не запускает обработку Job и не требует PostgreSQL.
+- Запустить Redis
+```bash
+docker run --rm -d --name oah-redis-smoke -p 127.0.0.1:6379:6379 redis:7-alpine
+docker exec oah-redis-smoke redis-cli ping
+```
+Ожидаемый ответ Redis — PONG.
 
+- Запустить воркер в первом терминале.
+```bash
+uv run --locked celery \
+  -A operations_automation_hub.celery_app:celery_app \
+  worker --loglevel=INFO --pool=solo
+```
+- Отправить smoke_task.delay() из второго терминала.
+```bash
+uv run --locked python -c "from operations_automation_hub.celery_app import smoke_task; print(smoke_task.delay().id)"
+```
+Вывод отправителя — ID задачи, а признак успеха — succeeded ...: 'PONG' с тем же ID в логе воркера.
+
+- Нажать Ctrl+C в терминале воркера, затем выполнить docker stop oah-redis-smoke. Из-за --rm контейнер удалится, поэтому для следующей проверки нужно снова выполнить docker run, а не docker start.
 ### CSV-валидация
 
 `POST /imports/csv/validate` — проверка CSV-файла с заявками **без сохранения в базу**.
