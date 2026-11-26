@@ -341,6 +341,8 @@ pkill -9 -f uvicorn
 
 Этап 2: PostgreSQL и SQLAlchemy
 
+Этап 3. Selery и Redis
+
 ### Применение решения к заявке
 
 Реализован `RequestDecisionService`: сервис получает сохранённую заявку,
