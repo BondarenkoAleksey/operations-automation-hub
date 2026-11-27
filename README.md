@@ -224,7 +224,24 @@ uv run --locked celery \
   -A operations_automation_hub.celery_app:celery_app \
   worker --loglevel=INFO --pool=solo
 ```
-- Отправить smoke_task.delay() из второго терминала.
+
+- Во втором терминале проверь, какие задачи зарегистрированы у воркера. Используй тот же `CELERY_BROKER_URL`, что и при запуске воркера.
+
+```bash
+uv run --locked celery \
+  -A operations_automation_hub.celery_app:celery_app \
+  inspect registered
+```
+
+В ответе воркера должны быть две задачи:
+
+```text
+* operations_automation_hub.celery_app.run_job_decisions_task
+* operations_automation_hub.celery_app.smoke_task
+```
+
+Этот список подтверждает, что воркер знает обе задачи. Команда не запускает ни одну из них и не проверяет запись в PostgreSQL.
+
 ```bash
 uv run --locked python -c "from operations_automation_hub.celery_app import smoke_task; print(smoke_task.delay().id)"
 ```
